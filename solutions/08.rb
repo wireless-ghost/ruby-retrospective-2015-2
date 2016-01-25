@@ -1,10 +1,27 @@
 require 'pp'
 
+class Helper
+
+  def self.check_string_for_numeric(value)
+    value.match(/\d+.\d+/) || value.match(/^\d+$/)
+  end
+
+  def self.pattern
+    /\s{2,}|\t/
+    #/\t|(?:\ {2,})/
+  end
+
+end
+
 class ColumnGenerator
 
-  def initialize(count)
+  #PATTERN = /\s{2}|\t/
+
+  def initialize(row)
+    count = row.split(Helper.pattern).count
     @columns = []
     @count = count
+    @column_count = -1
     generate_columns('', @count)
   end
 
@@ -15,6 +32,7 @@ class ColumnGenerator
   private
 
   def generate_letters(char, count)
+    pp count
     @columns << (65..(90 - 26 + count)).map(&:chr).map { |x| x = "#{char}#{x}"}
     @columns.flatten!
   end
@@ -38,26 +56,33 @@ class Cell
     @text_value, @real_value = text_value, real_value
   end
 
-  def int?
-    @real_value.match(/^\d+$/) != nil
+  def cell_int?
+    #match_data = @text_value.match(/(\d+.?\d?+)/)
+    #pp match_data, @text_value
+    #match_data != nil && match_data.to_s.length == @text_value.length
+    is_float = !!Float(@text_value) rescue false
+    pp is_float, @text_value
+    is_float && (@real_value.is_a? Numeric)
   end
 
   def get_int
-    @real_value.to_i
+    @real_value.to_f
   end
 
   def to_s
-    mask = '%p'
-    if @real_value.is_a? Numeric
-      @real_value = @real_value.to_f
-      mask = if @real_value % 1 == 0 then '%d' else '%.2f' end
+    if cell_int? || @text_value.start_with?("=")
+      integer, float = @real_value.to_i, @real_value.to_f
+      integer == float ? integer.to_s : "%.2f" % @real_value
+    else
+      @text_value
     end
-    sprintf(mask, @real_value)
   end
 
 end
 
 class Formula
+
+  VALID_FORMULAS = ["ADD", "SUBTRACT", "MULTIPLY", "MOD", "DIVIDE"]
 
   attr_reader :result
 
@@ -65,6 +90,9 @@ class Formula
     @result = -1
     check_brackets(string)
     function_name = string[1..string.length].split(/\(/).first
+    if ! VALID_FORMULAS.include? function_name
+      raise Spreadsheet::Error, "Unknown function '#{function_name}'"
+    end
     eval "#{function_name.downcase}(#{values})"
   end
 
@@ -99,31 +127,41 @@ class Formula
   end
 
   def subtract(values)
-    if (values.count < 2)
-      raise Spreadsheet::Error, get_messages("SUBTRACT", values.count)[0]
-    elsif (values.count > 2)
+    if values.count != 2
       raise Spreadsheet::Error, get_messages("SUBTRACT", values.count)[1]
     end
     @result = (values[0] - values[1]).to_f
   end
 
   def divide(values)
-    if (values.count < 2)
-      raise Spreadsheet::Error, get_messages("DIVIDE", values.count)[0]
-    elsif (values.count > 2)
-      raise Spreadsheet::Error, get_messages("DIVIDE", values.count)[1]
+     if values.count != 2
+       raise Spreadsheet::Error, get_messages("DIVIDE", values.count)[1]
     end
     @result = (values[0] / values[1]).to_f
   end
 
   def mod(values)
-    if (values.count < 2)
-      raise Spreadsheet::Error, get_messages("MOD", values.count)[0]
-    elsif (values.count > 2)
+    if values.count != 2
       raise Spreadsheet::Error, get_messages("MOD", values.count)[1]
     end
     @result = (values[0] % values[1]).to_f
   end
+end
+
+class TablePrinter
+
+  def print(result, row, table)
+    table.each do |key, value|
+      next if key == "A1"
+      if (/^*\d+$/.match(key).to_s.to_i == row)
+        result << "\t" + value.to_s
+      else
+        result << "\n" + value.to_s
+        row = /^*\d+$/.match(key).to_s.to_i
+      end
+    end
+  end
+
 end
 
 class Spreadsheet
@@ -133,10 +171,12 @@ class Spreadsheet
 
   attr_accessor :table, :rows, :columns
 
+  #PATTERN = /\t| |\s{2,}/
+
   def initialize(table = '')
     @row_count, @column_count = 1, -1
     @columns, @table = [], Hash.new
-    generator = ColumnGenerator.new((table.lines.first || '').split(' ').count)
+    generator = ColumnGenerator.new((table.lines.first || ''))
     @columns = generator.get_columns
     @row_count , @column_count = 1, 0
     populate_cells(table)
@@ -145,7 +185,7 @@ class Spreadsheet
   def populate_cells(table)
     table.lines.each do |row|
       @column_count = 0
-      row.split(' ').each do |cell|
+      row.strip.split(Helper.pattern).each do |cell|
         add_cell(cell)
         @column_count += 1
       end
@@ -155,51 +195,48 @@ class Spreadsheet
 
   def check_table(value)
     res = value
-    if value.match(/^\d+$/) == nil && cell_at(value)
+    if ! Helper.check_string_for_numeric(value) && cell_at(value)
       res = @table[value].get_int
     end
-    res.to_i
+    res.to_f
   end
 
   def add_cell(value)
     real = value
     if (value.start_with?("="))
-      split_values = value[/\((.*?)\)/, 1].split(',').map{ |s| check_table(s) }
-      real = Formula.new(value, split_values).result
+      temp = value.gsub(/\s+/, "")
+      split_values = temp[/\((.*?)\)/, 1].split(',').map{ |s| check_table(s) }
+      real = Formula.new(temp, split_values).result
     end
     @table["#{@columns[@column_count]}#{@row_count}"] = Cell.new(value, real)
   end
 
   def to_s
-    result, row = "", 1
-    print(result, row)
+    result, row = '', 1
+    result << @table["A1"].to_s unless @row_count == 0
+    TablePrinter.new.print(result, row, @table) unless @row_count == 0
     result
   end
 
-  def print(result, row)
-    @table.each do |key, value|
-      if (/^*\d+$/.match(key).to_s.to_i == row)
-        result << value.to_s + "\t"
-      else
-        result << "\n#{value.to_s}\t"
-        row = /^*\d+$/.match(key).to_s.to_i
-      end
-    end
-  end
-
   def cell_at(cell_index)
-    if ! @table.has_key? (cell_index)
-      raise Error, "Invalid cell index '#{cell_index}'"
+    if not @table.has_key? (cell_index)
+      raise Error, "Cell '#{cell_index}' does not exist"
     else
       @table[cell_index].text_value
     end
   end
 
   def [](cell_index)
-    if ! @table.has_key? (cell_index)
-      raise Error, "Invalid cell index '#{cell_index}'"
+    if not @table.has_key? (cell_index)
+      raise Error, "Cell '#{cell_index}' does not exist"
     else
-      @table[cell_index].real_value
+      @table[cell_index].to_s
     end
   end
+
+  def empty?
+    @columns.count == 0
+  end
 end
+
+#TODO EXTEND THE ADD_CELL TO HAPPEN AFTER ALL THE VALUE CELL HAVE BEEN FILLED!!!!
