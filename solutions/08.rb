@@ -8,14 +8,20 @@ class Helper
 
   def self.pattern
     /\s{2,}|\t/
-    #/\t|(?:\ {2,})/
+  end
+
+  def self.check_brackets(string)
+    open = string.index('(')
+    close = string.index(')')
+    if ! open || ! close || open > close
+      raise Spreadsheet::Error, "Invalid expression '#{string[1..-1]}'"
+    end
+    string
   end
 
 end
 
 class ColumnGenerator
-
-  #PATTERN = /\s{2}|\t/
 
   def initialize(row)
     count = row.split(Helper.pattern).count
@@ -32,7 +38,6 @@ class ColumnGenerator
   private
 
   def generate_letters(char, count)
-    pp count
     @columns << (65..(90 - 26 + count)).map(&:chr).map { |x| x = "#{char}#{x}"}
     @columns.flatten!
   end
@@ -57,11 +62,7 @@ class Cell
   end
 
   def cell_int?
-    #match_data = @text_value.match(/(\d+.?\d?+)/)
-    #pp match_data, @text_value
-    #match_data != nil && match_data.to_s.length == @text_value.length
     is_float = !!Float(@text_value) rescue false
-    pp is_float, @text_value
     is_float && (@real_value.is_a? Numeric)
   end
 
@@ -88,20 +89,12 @@ class Formula
 
   def initialize(string, values)
     @result = -1
-    check_brackets(string)
+    Helper.check_brackets(string)
     function_name = string[1..string.length].split(/\(/).first
     if ! VALID_FORMULAS.include? function_name
       raise Spreadsheet::Error, "Unknown function '#{function_name}'"
     end
     eval "#{function_name.downcase}(#{values})"
-  end
-
-  def check_brackets(string)
-    open = string.index('(')
-    close = string.index(')')
-    if ! open || ! close || open > close
-      raise Spreadsheet::Error, "Invalid expression #{string}"
-    end
   end
 
   def get_messages(name, arguments)
@@ -171,22 +164,20 @@ class Spreadsheet
 
   attr_accessor :table, :rows, :columns
 
-  #PATTERN = /\t| |\s{2,}/
-
   def initialize(table = '')
-    @row_count, @column_count = 1, -1
+    @row_count, @column_count = 1, 0
     @columns, @table = [], Hash.new
     generator = ColumnGenerator.new((table.lines.first || ''))
     @columns = generator.get_columns
-    @row_count , @column_count = 1, 0
     populate_cells(table)
+    @table.each { |key, cell| cell.real_value = evaluate_cell(cell.real_value) }
   end
 
   def populate_cells(table)
     table.lines.each do |row|
       @column_count = 0
       row.strip.split(Helper.pattern).each do |cell|
-        add_cell(cell)
+        @table["#{@columns[@column_count]}#{@row_count}"] = Cell.new(cell, cell)
         @column_count += 1
       end
       @row_count += 1
@@ -201,14 +192,14 @@ class Spreadsheet
     res.to_f
   end
 
-  def add_cell(value)
+  def evaluate_cell(value)
     real = value
-    if (value.start_with?("="))
+    if value.start_with?("=") && Helper.check_brackets(value)
       temp = value.gsub(/\s+/, "")
       split_values = temp[/\((.*?)\)/, 1].split(',').map{ |s| check_table(s) }
       real = Formula.new(temp, split_values).result
     end
-    @table["#{@columns[@column_count]}#{@row_count}"] = Cell.new(value, real)
+    real
   end
 
   def to_s
@@ -238,5 +229,3 @@ class Spreadsheet
     @columns.count == 0
   end
 end
-
-#TODO EXTEND THE ADD_CELL TO HAPPEN AFTER ALL THE VALUE CELL HAVE BEEN FILLED!!!!
