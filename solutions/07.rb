@@ -1,3 +1,5 @@
+require 'pp'
+
 module LazyMode
 
   class Date
@@ -91,22 +93,42 @@ module LazyMode
 
     def loop_days
       result = []
-      (0.upto(7)).each do |day|
+      #pp "LOOP"
+      #pp @file.notes.size
+      (0.upto(6)).each do |day|
+        #pp "RESULT FOR #{day} IS #{result.count}"
         result << collect_weekly_notes(day)
       end
-      result.flatten.uniq
+      result.flatten
     end
 
     def collect_weekly_notes(day)
       result = []
-      if result.size != @file.notes.size
-        result << get_notes_for_day(day)
+      @file.notes.each do |note|
+        result = get_note_for_day(result, note, day)
       end
-      result
+      #pp "FINAL RES: #{result.flatten.count}"
+      result.flatten
     end
 
-    def get_notes_for_day(day)
-      @file.notes.select { |note| note.valid?(@date.dup.add_days(day)) }
+    def validate_note(note, date)
+      #pp date, "BATATTA"
+      if note.valid?(date)
+        #pp note.header, date
+        new_note = note.dup
+        #pp @file.notes.size
+        new_note.period = [date]
+        new_note
+      else
+        nil
+      end
+    end
+
+    def get_note_for_day(result, note, day)
+      new_note = validate_note(note, @date.dup.add_days(day))
+      #pp new_note
+      result << new_note if new_note
+      result.flatten
     end
 
     def notes
@@ -230,19 +252,19 @@ module LazyMode
       @status
     end
 
-    def body(value = nil)
-      @body = value if value
-      @body
+    def body(value = '')
+      @body = value if value != ''
+      @body || ''
     end
 
     def scheduled(date_string)
       @period, split_date = [], date_string.split(' ')
       start_date = LazyMode::Date.new(split_date.first)
+
       @period << start_date
       repeat = split_date.last[-1]
-      split_date.last[1.. -2].to_i.downto 1 do |duration|
-        repeat_by(repeat, start_date, duration)
-      end
+      duration = split_date.last[1..-1].split(/\D+/).first
+      100.downto 1 do repeat_by(repeat, @period.last, duration.to_i) end
     end
 
     def repeat_by(repeat, start_date, duration)
@@ -253,7 +275,7 @@ module LazyMode
     end
 
     def valid?(date)
-      @period.include?(date)
+      @period.include?(date) ? date : nil
     end
 
     def date
@@ -262,3 +284,40 @@ module LazyMode
   end
 
 end
+=begin
+file = LazyMode.create_file('file') do
+  note 'simple note' do
+    scheduled '2012-11-12 +2m'
+  end
+
+  note 'simple note 2' do
+    scheduled '2012-12-13 +2m'
+  end
+end
+
+agenda = file.weekly_agenda(LazyMode::Date.new('2013-01-10'))
+pp "JOKER"
+pp agenda.notes
+pp agenda.notes.size
+=begin
+file = LazyMode.create_file('file') do
+  note 'simple note' do
+    scheduled '2012-12-12'
+  end
+
+  note 'simple note 2' do
+    scheduled '2012-12-13'
+  end
+end
+
+agenda = file.daily_agenda(LazyMode::Date.new('2012-12-12'))
+#pp agenda.notes.size
+=begin
+file = LazyMode.create_file('not_important') do
+  note 'not_important' do
+    body 'Do not forget to...'
+   end
+end
+
+pp file.notes.first.body
+=end
