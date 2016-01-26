@@ -2,36 +2,40 @@ module TurtleGraphics
 
   module Canvas
 
+    class Helper
+
+      def self.populate_canvas(width, height, canvas, max)
+        (0..(height - 1)).each do
+          row = Array.new
+          (1..width).each do
+            row.push(0)
+          end
+          canvas.push(row)
+        end
+        canvas[0][0] = 1
+        max = 1
+      end
+
+    end
+
     class Standard
       ORIENTATIONS = %i(right down left up)
-      attr_accessor :width, :height, :x, :y
+      attr_accessor :width, :height, :x, :y, :canvas, :max
 
       def initialize(width, height)
         @width, @height = width, height
         @canvas = Array.new
         @max = 0
         if (width != 0 && height != 0)
-          populate_canvas
+          Helper.populate_canvas(@width, @height, @canvas, @max)
         end
         @row, @column = 0, 0
         @orientation = 0
       end
 
-      def populate_canvas
-        (0..(@height - 1)).each do
-          row = Array.new
-          (1..@width).each do
-            row.push(0)
-          end
-          @canvas.push(row)
-        end
-        @canvas[0][0] = 1
-        @max = 1
-      end
-
       def draw(&block)
         self.instance_eval(&block)
-        to_a
+        @canvas
       end
 
       def turn_right()
@@ -54,14 +58,13 @@ module TurtleGraphics
       end
 
       def move()
-        case ORIENTATIONS[@orientation]
-        when :right
+        if ORIENTATIONS[@orientation] == :right
           @column += 1
-        when :down
+        elsif ORIENTATIONS[@orientation] == :down
           @row += 1
-        when :left
+        elsif ORIENTATIONS[@orientation] == :left
           @column -= 1
-        when :up
+        elsif
           @row -= 1
         end
         fix_position
@@ -78,9 +81,6 @@ module TurtleGraphics
         @orientation = ORIENTATIONS.index(orientation)
       end
 
-      def to_a
-        @canvas
-      end
     end
 
     class ASCII < Standard
@@ -159,39 +159,39 @@ module TurtleGraphics
     </body>
 </html>"
 
-def initialize(pixels)
-  @pixels = pixels
-  super(0,0)
-end
+      def initialize(pixels)
+        @pixels = pixels
+        super(0,0)
+      end
 
-def draw(&block)
-  self.instance_eval(&block)
-  to_s
-end
+      def draw(&block)
+        self.instance_eval(&block)
+        to_s
+      end
 
-def generate_td(element)
-  "<td style=\"opacity: #{format('%.2f', (element.to_f / @max)) }\" ></td>"
-end
+      def generate_td(element)
+        "<td style=\"opacity: #{format('%.2f', (element.to_f / @max)) }\" ></td>"
+      end
 
-def generate_tr(row)
-  result = '<tr>'
-  row.each do |element|
-    result += generate_td(element)
-  end
-  result += '</tr>'
-  result
-end
+      def generate_tr(row)
+        result = '<tr>'
+        row.each do |element|
+          result += generate_td(element)
+        end
+        result += '</tr>'
+        result
+      end
 
-def to_s
-  table = ""
-  @canvas.each do |row|
-    table += generate_tr(row)
-  end
-  result = HTML_STRING.gsub("##|table|##", table)
-  result = result.gsub!("##|width|##", @pixels.to_s)
-  result = result.gsub!("##|height|##", @pixels.to_s)
-  result
-end
+      def to_s
+        table = ""
+        @canvas.each do |row|
+          table += generate_tr(row)
+        end
+        result = HTML_STRING.gsub("##|table|##", table)
+        result = result.gsub!("##|width|##", @pixels.to_s)
+        result = result.gsub!("##|height|##", @pixels.to_s)
+        result
+      end
     end
 
   end
@@ -207,7 +207,7 @@ end
       if canvas != nil
         canvas.width = @width
         canvas.height = @height
-        canvas.populate_canvas
+        Canvas::Helper.populate_canvas(@width, @height, canvas.canvas, canvas.max)
         canvas.draw(&block)
       else
         @canvas.draw(&block)
