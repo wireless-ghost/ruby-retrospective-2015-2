@@ -1,7 +1,6 @@
 require 'pp'
 
 class Helper
-
   def self.check_string_for_numeric(value)
     value.match(/\d+.\d+/) || value.match(/^\d+$/)
   end
@@ -18,11 +17,9 @@ class Helper
     end
     string
   end
-
 end
 
 class ColumnGenerator
-
   def initialize(row)
     count = row.split(Helper.pattern).count
     @columns = []
@@ -50,11 +47,9 @@ class ColumnGenerator
       generate_letters(char, count)
     end
   end
-
 end
 
 class Cell
-
   attr_accessor :text_value, :real_value
 
   def initialize(text_value, real_value)
@@ -78,11 +73,9 @@ class Cell
       @text_value
     end
   end
-
 end
 
 class Formula
-
   VALID_FORMULAS = ["ADD", "SUBTRACT", "MULTIPLY", "MOD", "DIVIDE"]
 
   attr_reader :result
@@ -106,14 +99,14 @@ class Formula
   end
 
   def add(values)
-    if (values.count < 2)
+    if values.count < 2
       raise Spreadsheet::Error, get_messages("ADD", values.count)[0]
     end
     @result = values.inject(:+).to_f
   end
 
   def multiply(values)
-    if (values.count < 2)
+    if values.count < 2
       raise Spreadsheet::Error, get_messages("MULTIPLY", values.count)[0]
     end
     @result = values.inject(:*).to_f
@@ -142,7 +135,6 @@ class Formula
 end
 
 class TablePrinter
-
   def print(result, row, table)
     table.each do |key, value|
       next if key == "A1"
@@ -154,11 +146,9 @@ class TablePrinter
       end
     end
   end
-
 end
 
 class Spreadsheet
-
   class Error < StandardError
   end
 
@@ -166,7 +156,7 @@ class Spreadsheet
 
   def initialize(table = '')
     @row_count, @column_count = 1, 0
-    @columns, @table = [], Hash.new
+    @columns, @table = [], {}
     generator = ColumnGenerator.new((table.lines.first || ''))
     @columns = generator.get_columns
     populate_cells(table)

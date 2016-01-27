@@ -1,12 +1,9 @@
 module TurtleGraphics
-
   module Canvas
-
     class Helper
-
       def self.populate_canvas(width, height, canvas, max)
         (0..(height - 1)).each do
-          row = Array.new
+          row = []
           (1..width).each do
             row.push(0)
           end
@@ -15,7 +12,6 @@ module TurtleGraphics
         canvas[0][0] = 1
         max = 1
       end
-
     end
 
     class Standard
@@ -24,9 +20,9 @@ module TurtleGraphics
 
       def initialize(width, height)
         @width, @height = width, height
-        @canvas = Array.new
+        @canvas = []
         @max = 0
-        if (width != 0 && height != 0)
+        if width != 0 && height != 0
           Helper.populate_canvas(@width, @height, @canvas, @max)
         end
         @row, @column = 0, 0
@@ -38,12 +34,12 @@ module TurtleGraphics
         @canvas
       end
 
-      def turn_right()
+      def turn_right
         @orientation += 1
         @orientation = 0 if @orientation > 3
       end
 
-      def turn_left()
+      def turn_left
         @orientation -= 1
         @orientation = 3 if @orientation < 0
       end
@@ -57,7 +53,7 @@ module TurtleGraphics
         @max = @canvas.flatten.max if @canvas[@row][@column] > @max
       end
 
-      def move()
+      def move
         if ORIENTATIONS[@orientation] == :right
           @column += 1
         elsif ORIENTATIONS[@orientation] == :down
@@ -80,11 +76,9 @@ module TurtleGraphics
       def look(orientation)
         @orientation = ORIENTATIONS.index(orientation)
       end
-
     end
 
     class ASCII < Standard
-
       def initialize(chars)
         @chars = chars
         super(0,0)
@@ -124,11 +118,9 @@ module TurtleGraphics
         end
         result.chomp
       end
-
     end
 
     class HTML < Standard
-
       HTML_STRING = "
 <!DOCTYPE html>
 <html>
@@ -176,16 +168,16 @@ module TurtleGraphics
       def generate_tr(row)
         result = '<tr>'
         row.each do |element|
-          result += generate_td(element)
+          result << generate_td(element)
         end
-        result += '</tr>'
+        result << '</tr>'
         result
       end
 
       def to_s
         table = ""
         @canvas.each do |row|
-          table += generate_tr(row)
+          table << generate_tr(row)
         end
         result = HTML_STRING.gsub("##|table|##", table)
         result = result.gsub!("##|width|##", @pixels.to_s)
@@ -193,11 +185,9 @@ module TurtleGraphics
         result
       end
     end
-
   end
 
   class Turtle
-
     def initialize(height, width)
       @width, @height = width, height
       @canvas = Canvas::Standard.new(width, height)
@@ -213,7 +203,5 @@ module TurtleGraphics
         @canvas.draw(&block)
       end
     end
-
   end
-
 end

@@ -42,7 +42,7 @@ class ObjectStore
     end
 
     def to_s
-      "Commit #{@hash}\nDate: #{formatted_date}\n\n\t#{@message}"
+      "Commit #@hash\nDate: #{formatted_date}\n\n\t#@message"
     end
   end
 

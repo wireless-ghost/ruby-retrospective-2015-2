@@ -1,7 +1,6 @@
 require 'pp'
 
 module LazyMode
-
   class Date
 
     attr_accessor :day, :month, :year
@@ -11,11 +10,11 @@ module LazyMode
     end
 
     def to_s
-      "#{ "%04d" % @year }-#{ "%02d" % @month }-#{ "%02d" % @day }"
+      "#{"%04d" % @year}-#{"%02d" % @month}-#{"%02d" % @day}"
     end
 
     def add_days(count)
-      if (@day + count > 30)
+      if @day + count > 30
         add_months(1)
         @day += count - 30
       else
@@ -30,7 +29,7 @@ module LazyMode
     end
 
     def add_months(count)
-      if ( @month + count > 12 )
+      if @month + count > 12
         add_years(1)
         @month += count - 12
       else
@@ -51,7 +50,6 @@ module LazyMode
     def <=>(other)
       [@year, @month, @day] <=> [other.year, other.month, other.day]
     end
-
   end
 
   def self.create_file(file_name, &block)
@@ -61,7 +59,6 @@ module LazyMode
   end
 
   class DailyAgenda
-
     def initialize(file, date)
       @file, @date = file, date
       if @file.notes != nil
@@ -83,20 +80,15 @@ module LazyMode
   end
 
   class WeeklyAgenda
-
     def initialize(file, date)
       @file = file
       @date = date
-
       @file.notes = loop_days
     end
 
     def loop_days
       result = []
-      #pp "LOOP"
-      #pp @file.notes.size
       (0.upto(6)).each do |day|
-        #pp "RESULT FOR #{day} IS #{result.count}"
         result << collect_weekly_notes(day)
       end
       result.flatten
@@ -107,16 +99,12 @@ module LazyMode
       @file.notes.each do |note|
         result = get_note_for_day(result, note, day)
       end
-      #pp "FINAL RES: #{result.flatten.count}"
       result.flatten
     end
 
     def validate_note(note, date)
-      #pp date, "BATATTA"
       if note.valid?(date)
-        #pp note.header, date
         new_note = note.dup
-        #pp @file.notes.size
         new_note.period = [date]
         new_note
       else
@@ -126,7 +114,6 @@ module LazyMode
 
     def get_note_for_day(result, note, day)
       new_note = validate_note(note, @date.dup.add_days(day))
-      #pp new_note
       result << new_note if new_note
       result.flatten
     end
@@ -141,7 +128,6 @@ module LazyMode
   end
 
   class FilteredNotes
-
     def initialize(file, parameters)
       @file = file.dup
       filter_by_text(parameters[0][:text])
@@ -194,7 +180,6 @@ module LazyMode
   end
 
   class File
-
     attr_accessor :name, :notes
 
     def initialize(file_name)
@@ -230,7 +215,6 @@ module LazyMode
   end
 
   class Note
-
     attr_accessor :header, :file_name, :body, :status, :tags, :children, :period
 
     def initialize(header, tags, file)
@@ -282,42 +266,4 @@ module LazyMode
       @period.first
     end
   end
-
 end
-=begin
-file = LazyMode.create_file('file') do
-  note 'simple note' do
-    scheduled '2012-11-12 +2m'
-  end
-
-  note 'simple note 2' do
-    scheduled '2012-12-13 +2m'
-  end
-end
-
-agenda = file.weekly_agenda(LazyMode::Date.new('2013-01-10'))
-pp "JOKER"
-pp agenda.notes
-pp agenda.notes.size
-=begin
-file = LazyMode.create_file('file') do
-  note 'simple note' do
-    scheduled '2012-12-12'
-  end
-
-  note 'simple note 2' do
-    scheduled '2012-12-13'
-  end
-end
-
-agenda = file.daily_agenda(LazyMode::Date.new('2012-12-12'))
-#pp agenda.notes.size
-=begin
-file = LazyMode.create_file('not_important') do
-  note 'not_important' do
-    body 'Do not forget to...'
-   end
-end
-
-pp file.notes.first.body
-=end
